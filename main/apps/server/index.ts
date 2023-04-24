@@ -1,5 +1,7 @@
-import express, { Handler } from "express";
-import { MongoClient } from "mongodb";
+import express, { Handler, Request, RequestHandler } from "express";
+import { MongoClient, ObjectId } from "mongodb";
+import bodyParser from "body-parser";
+import { personInfoSchema, PersonInfo } from "./schema";
 
 const PORT = 3000;
 const app = express();
@@ -8,9 +10,11 @@ const app = express();
 // set up some authentication?
 
 const mongoMiddleware: Handler = async (req, res, next) => {
-    const client = new MongoClient("mongodb://localhost:27017/local");
+    const client = new MongoClient("mongodb://localhost:27017/astro-star-sign");
 
     await client.connect();
+
+    client.db().collection("charts").findOne({ _id: new ObjectId("6445f2456327069e944dccae") })
 
     // @ts-ignore
     req.db = client.db();
@@ -18,31 +22,43 @@ const mongoMiddleware: Handler = async (req, res, next) => {
     next();
 };
 
+app.use(bodyParser.json());
 app.use(mongoMiddleware);
 
-// start server
-app.get("/", async (req, res) => {
-    res.statusCode = 200;
-    // @ts-ignore - need to fix types
-    const data = await req.db.collection("local").find().toArray();
-    res.send(JSON.stringify(data));
-});
-
 app.post("/save", async (req, res) => {
-    // validate input
+    const schema = personInfoSchema.safeParse(req.body);
 
-    // throw error if input does not pass validation
+    if (!schema.success) {
+        res.writeHead(500).end({ message: "There was an error, please check your data and try again" });
+    }
 
-    // otherwise, save to db
+    // @ts-ignore - fix types
+    const document = await req.db.collection("charts").insertOne(req.body);
+
+    res.writeHead(200).end(
+        {
+            message: "success",
+            _id: document.insertedId,
+            ...req.body
+        }
+    );
 });
 
-app.get("/:id", async (req, res) => {
-    // authenticate user? - doesn't seem necessary
-
-    // fetch from database by id - should come in from the client route
-
-    // const doc = await req.db.findOne({ _id: req.id })
+app.get("/chart/:id", async (req: Request<{ id: string }>, res) => {
+    try {
+        // @ts-ignore - fix types
+        const doc = await req.db.collection("charts").findOne({ _id: new ObjectId(req.params.id) });
+        if (!doc) {
+            res.writeHead(404).end("The requested document was not found")
+        } else {
+            res.writeHead(200).end(JSON.stringify(doc));
+        }
+    } catch (e) {
+        console.log(e)
+    }
 });
+
+app.get("*", (req, res) => res.writeHead(404).end());
 
 app.listen(PORT, () => {
     console.log(`Server running on localhost:${PORT}`);
