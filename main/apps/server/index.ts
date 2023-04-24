@@ -1,7 +1,8 @@
-import express, { Handler, Request, RequestHandler } from "express";
+import express, { Handler, Request } from "express";
 import { MongoClient, ObjectId } from "mongodb";
 import bodyParser from "body-parser";
-import { personInfoSchema, PersonInfo } from "./schema";
+import { personInfoSchema } from "./schema";
+import { generateChart } from "./generate-chart";
 
 const PORT = 3000;
 const app = express();
@@ -51,6 +52,8 @@ app.get("/chart/:id", async (req: Request<{ id: string }>, res) => {
         if (!doc) {
             res.writeHead(404).end("The requested document was not found")
         } else {
+            // @ts-ignore
+            const chart = await generateChart(doc, req.db);
             res.writeHead(200).end(JSON.stringify(doc));
         }
     } catch (e) {
