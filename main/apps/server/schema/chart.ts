@@ -1,3 +1,5 @@
+import { PersonInfo } from "./personInfo";
+
 export enum Sign {
     Aries,
     Taurus,
@@ -17,4 +19,4 @@ export type Chart = {
     sun: Sign;
     moon: Sign;
     rising: Sign;
-}
+} & PersonInfo;

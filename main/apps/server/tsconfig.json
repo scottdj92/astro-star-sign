@@ -2,6 +2,7 @@
     "exclude": ["node_modules"],
     "compilerOptions": {
         "outDir": "./lib",
-        "esModuleInterop": true
-    }
+        "esModuleInterop": true,
+        "typeRoots": ["types/*", "node_modules/@types"]
+    },
 }
