@@ -1,7 +1,9 @@
 import { Db } from "mongodb";
 
-declare module Express {
-    export interface Request {
-        db?: Db
+declare global {
+    namespace Express {
+        interface Request {
+            db: Db;
+        }
     }
 }

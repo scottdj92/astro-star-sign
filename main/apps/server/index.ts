@@ -11,54 +11,68 @@ dayjs.extend(utc);
 const PORT = 3000;
 const app = express();
 
+// a single client is shared across requests; MongoClient pools connections internally
+const client = new MongoClient("mongodb://localhost:27017/astro-star-sign");
+const db = client.db();
 
-// set up some authentication?
-
-const mongoMiddleware: Handler = async (req, _, next) => {
-    const client = new MongoClient("mongodb://localhost:27017/astro-star-sign");
-    await client.connect();
-    req.db = client.db();
-
-    next();
+const mongoMiddleware: Handler = (req, _, next) => {
+  req.db = db;
+  next();
 };
 
 app.use(bodyParser.json());
 app.use(mongoMiddleware);
 
 app.post("/save", async (req, res) => {
-    const schema = personInfoSchema.safeParse(req.body);
+  const schema = personInfoSchema.safeParse(req.body);
 
-    if (!schema.success) {
-        res.writeHead(500).end({ message: "There was an error, please check your data and try again" });
-    }
+  if (!schema.success) {
+    return res.status(400).json({
+      message: "There was an error, please check your data and try again",
+      errors: schema.error.flatten(),
+    });
+  }
 
-    const document = await req.db.collection("charts").insertOne(req.body);
+  const document = await req.db.collection("charts").insertOne(schema.data);
 
-    res.writeHead(200).end(
-        {
-            message: "success",
-            _id: document.insertedId,
-            ...req.body
-        }
-    );
+  res.status(200).json({
+    message: "success",
+    _id: document.insertedId,
+    ...schema.data,
+  });
 });
 
 app.get("/chart/:id", async (req: Request<{ id: string }>, res) => {
-    try {
-        const doc = await req.db.collection<Chart>("charts").findOne({ _id: new ObjectId(req.params.id) });
-        if (!doc) {
-            res.writeHead(404).end("The requested document was not found")
-        } else {
-            const chart = await generateChart(doc, req.db);
-            res.writeHead(200).end(JSON.stringify(chart));
-        }
-    } catch (e) {
-        console.log(e)
+  if (!ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid chart ID" });
+  }
+
+  try {
+    const doc = await req.db
+      .collection<Chart>("charts")
+      .findOne({ _id: new ObjectId(req.params.id) });
+    if (!doc) {
+      res.status(404).end("The requested document was not found");
+    } else {
+      const chart = await generateChart(doc, req.db);
+      res.status(200).json(chart);
     }
+  } catch (e) {
+    console.log(e);
+    res.status(500).json({ message: "Invalid chart ID" });
+  }
 });
 
 app.get("*", (_, res) => res.writeHead(404).end());
 
-app.listen(PORT, () => {
-    console.log(`Server running on localhost:${PORT}`);
-});
+client
+  .connect()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on localhost:${PORT}`);
+    });
+  })
+  .catch((e) => {
+    console.error(`There was an error connecting: ${e.message}`);
+    process.exit(1);
+  });

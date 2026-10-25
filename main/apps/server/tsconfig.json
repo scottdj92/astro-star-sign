@@ -1,8 +1,12 @@
 {
     "exclude": ["node_modules"],
+    "ts-node": {
+        "files": true
+    },
     "compilerOptions": {
         "outDir": "./lib",
         "esModuleInterop": true,
+        "strict": true,
         "typeRoots": ["types/*", "node_modules/@types"]
     },
 }
