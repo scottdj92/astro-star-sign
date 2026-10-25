@@ -4,7 +4,7 @@
   "description": "a server to maintain data interopability with web applications",
   "main": "lib/index.js",
   "scripts": {
-    "test": "test",
+    "test": "node --require ts-node/register --test tests/*.test.ts",
     "build": "tsc",
     "dev": "ts-node index.ts --traceResolution",
     "db:up": "docker compose up -d",

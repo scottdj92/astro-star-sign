@@ -1,10 +1,10 @@
 import express, { Handler, Request } from "express";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient, MongoServerError, ObjectId } from "mongodb";
 import bodyParser from "body-parser";
-import { Chart, personInfoSchema } from "./schema";
-import { generateChart } from "./generate-chart";
+import { Chart, chartInputSchema } from "./schema";
+import { generateChart, normalizeChartInput } from "./generate-chart";
 
 dayjs.extend(utc);
 
@@ -23,8 +23,9 @@ const mongoMiddleware: Handler = (req, _, next) => {
 app.use(bodyParser.json());
 app.use(mongoMiddleware);
 
-app.post("/save", async (req, res) => {
-  const schema = personInfoSchema.safeParse(req.body);
+// find-or-create: a chart is only computed the first time a birth moment and place is seen
+app.post("/charts", async (req, res) => {
+  const schema = chartInputSchema.safeParse(req.body);
 
   if (!schema.success) {
     return res.status(400).json({
@@ -33,40 +34,75 @@ app.post("/save", async (req, res) => {
     });
   }
 
-  const document = await req.db.collection("charts").insertOne(schema.data);
+  const key = normalizeChartInput(schema.data);
+  const charts = req.db.collection<Chart>("charts");
+  // dotted paths match the unique index; an embedded-document match would be field-order sensitive
+  const filter = {
+    bornAt: key.bornAt,
+    "location.lat": key.location.lat,
+    "location.long": key.location.long,
+  };
 
-  res.status(200).json({
-    message: "success",
-    _id: document.insertedId,
-    ...schema.data,
-  });
+  try {
+    const existing = await charts.findOne(filter);
+    if (existing) {
+      return res.status(200).json(existing);
+    }
+
+    const chart = generateChart(key);
+    const { insertedId } = await charts.insertOne(chart);
+    return res.status(201).json({ ...chart, _id: insertedId });
+  } catch (e) {
+    // a concurrent request inserted the same chart first; return that one
+    if (e instanceof MongoServerError && e.code === 11000) {
+      return res.status(200).json(await charts.findOne(filter));
+    }
+
+    console.error(e);
+    return res
+      .status(500)
+      .json({ message: "There was an error creating the chart" });
+  }
 });
 
-app.get("/chart/:id", async (req: Request<{ id: string }>, res) => {
+app.get("/charts/:id", async (req: Request<{ id: string }>, res) => {
   if (!ObjectId.isValid(req.params.id)) {
     return res.status(400).json({ message: "Invalid chart ID" });
   }
 
   try {
-    const doc = await req.db
+    const chart = await req.db
       .collection<Chart>("charts")
       .findOne({ _id: new ObjectId(req.params.id) });
-    if (!doc) {
-      res.status(404).end("The requested document was not found");
-    } else {
-      const chart = await generateChart(doc, req.db);
-      res.status(200).json(chart);
+
+    if (!chart) {
+      return res
+        .status(404)
+        .json({ message: "The requested chart was not found" });
     }
+
+    return res.status(200).json(chart);
   } catch (e) {
-    console.log(e);
-    res.status(500).json({ message: "Invalid chart ID" });
+    console.error(e);
+    return res
+      .status(500)
+      .json({ message: "There was an error fetching the chart" });
   }
 });
 
-app.get("*", (_, res) => res.writeHead(404).end());
+app.all("*", (_, res) => res.writeHead(404).end());
 
 client
   .connect()
+  // the db enforces one chart per birth moment and place; this is a no-op if the index exists
+  .then(() =>
+    db
+      .collection("charts")
+      .createIndex(
+        { bornAt: 1, "location.lat": 1, "location.long": 1 },
+        { unique: true },
+      ),
+  )
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on localhost:${PORT}`);
