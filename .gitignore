@@ -71,6 +71,14 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+.env*.local
+
+# misc
+.DS_Store
+*.pem
+
+# vercel
+.vercel
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
