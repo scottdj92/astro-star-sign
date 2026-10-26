@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { MongoClient, MongoServerError, ObjectId } from "mongodb";
 import bodyParser from "body-parser";
-import { Chart, chartInputSchema } from "./schema";
+import { Chart, chartInputSchema } from "schema";
 import { generateChart, normalizeChartInput } from "./generate-chart";
 
 dayjs.extend(utc);
@@ -109,6 +109,6 @@ client
     });
   })
   .catch((e) => {
-    console.error(`There was an error connecting: ${e.message}`);
+    console.error(`There was an error connecting: ${e}`);
     process.exit(1);
   });

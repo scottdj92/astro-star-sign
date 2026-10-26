@@ -28,3 +28,9 @@ export type Chart = {
     moon: Sign;
     rising: Sign;
 } & ChartKey;
+
+// a chart as the api returns it: JSON has no Date or ObjectId, so both become strings
+export type ChartResponse = Omit<Chart, "bornAt"> & {
+    _id: string;
+    bornAt: string;
+};

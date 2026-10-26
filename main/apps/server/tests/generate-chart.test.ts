@@ -9,7 +9,7 @@ import {
   generateChart,
   normalizeChartInput,
 } from "../generate-chart";
-import { Sign } from "../schema";
+import { Sign } from "schema";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
