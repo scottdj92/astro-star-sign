@@ -8,8 +8,8 @@ import {
   calculateSun,
   generateChart,
   normalizeChartInput,
-} from "../generate-chart";
-import { Sign } from "schema";
+} from "../lib/generate-chart";
+import { Sign } from "../lib/schema";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 

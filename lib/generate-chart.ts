@@ -1,7 +1,7 @@
 // add the logic for determining charts based on user input
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { Chart, ChartInput, ChartKey, Sign } from "schema";
+import { Chart, ChartInput, ChartKey, Sign } from "./schema";
 
 dayjs.extend(utc);
 
